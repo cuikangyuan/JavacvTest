@@ -29,7 +29,7 @@ dependencies {
 
     implementation 'org.bytedeco:javacv:1.4.4'
     implementation 'com.getkeepsafe.relinker:relinker:1.2.3'
-    implementation 'org.bytedeco.javacpp-presets:opencv-platform:4.0.1-1.4.4'
+    //implementation 'org.bytedeco.javacpp-presets:opencv-platform:4.0.1-1.4.4'
     implementation 'org.bytedeco.javacpp-presets:ffmpeg-platform:4.1-1.4.4'
 
 

@@ -1,11 +1,17 @@
 package com.tiangou.javacvtest;
 
 import android.Manifest;
+import android.app.AlarmManager;
+import android.os.Handler;
+import android.os.Message;
+import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import org.bytedeco.javacpp.avcodec;
 import org.bytedeco.javacpp.avutil;
@@ -21,8 +27,39 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
 
+
     private static final String TAG = "MainActivity";
     private Button button;
+
+    private TextView textView;
+
+    private long startTime;
+    private long endTime;
+
+    private Handler handler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(Message msg) {
+
+            Bundle data = msg.getData();
+            if (data != null && data.get("result") != null) {
+
+                Result result1 = (Result) data.get("result");
+
+                StringBuilder stringBuilder = new StringBuilder();
+                stringBuilder.append(result1.succeed ? "已完成" : "有异常发生");
+                stringBuilder.append(" 耗时: " + result1.timeUsed/1000 + "s");
+
+                //Toast.makeText(MainActivity.this,  result, Toast.LENGTH_LONG).show();
+
+                textView.setText(stringBuilder.toString());
+                button.setEnabled(true);
+
+            }
+
+
+            return false;
+        }
+    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         button = findViewById(R.id.button);
+        textView = findViewById(R.id.text1);
 
         avutil.av_log_set_level(avutil.AV_LOG_ERROR);//  AV_LOG_ERROR
 
@@ -40,13 +78,28 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
+                button.setEnabled(false);
+                textView.setText("视频处理中...");
+
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
 
+                        startTime = SystemClock.elapsedRealtime();
+
                         boolean b = mergeVideos();
 
-                        Log.d(TAG, "mergeVideos result : >>>>>>>>>>>>>>> " + b);
+                        endTime = SystemClock.elapsedRealtime();
+
+                        Message message = Message.obtain();
+                        Bundle bundle = new Bundle();
+                        bundle.putSerializable("result", new Result(b, endTime - startTime));
+
+                        message.setData(bundle);
+
+                        handler.sendMessage(message);
+
+                        Log.d(TAG, "mergeVideos result : >>>>>>> " + b  + "  time used : >>>>>>> " + (endTime - startTime));
 
                     }
                 }).start();
@@ -97,8 +150,6 @@ public class MainActivity extends AppCompatActivity {
 
             FFmpegFrameGrabberWrapper fFmpegFrameGrabberWrapper1 = new FFmpegFrameGrabberWrapper(videoGrabber1, audioGrabber1);
 
-            fgs.add(fFmpegFrameGrabberWrapper1);
-
             videoGrabber1.start();
             audioGrabber1.start();
 
@@ -108,9 +159,13 @@ public class MainActivity extends AppCompatActivity {
 
             FFmpegFrameGrabberWrapper fFmpegFrameGrabberWrapper2 = new FFmpegFrameGrabberWrapper(videoGrabber2, audioGrabber2);
 
-            fgs.add(fFmpegFrameGrabberWrapper2);
+
             videoGrabber2.start();
             audioGrabber2.start();
+
+
+            fgs.add(fFmpegFrameGrabberWrapper2);
+            fgs.add(fFmpegFrameGrabberWrapper1);
 
 
             FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(
