@@ -1,0 +1,275 @@
+package com.tiangou.javacvtest;
+
+import android.Manifest;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+
+import org.bytedeco.javacpp.avcodec;
+import org.bytedeco.javacpp.avutil;
+import org.bytedeco.javacv.FFmpegFrameGrabber;
+import org.bytedeco.javacv.FFmpegFrameRecorder;
+import org.bytedeco.javacv.Frame;
+import org.bytedeco.javacv.FrameGrabber;
+import org.bytedeco.javacv.FrameRecorder;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class MainActivity extends AppCompatActivity {
+
+
+    private static final String TAG = "MainActivity";
+    private Button button;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        button = findViewById(R.id.button);
+
+        avutil.av_log_set_level(avutil.AV_LOG_ERROR);//  AV_LOG_ERROR
+
+        PermissionUtil.checkAndRequestPermission(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, true, PermissionUtil.CHECK_STORAGE_PERMISSION);
+
+
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        boolean b = mergeVideos();
+
+                        Log.d(TAG, "mergeVideos result : >>>>>>>>>>>>>>> " + b);
+
+                    }
+                }).start();
+
+            }
+        });
+    }
+
+    private void printInfo(FFmpegFrameGrabber fFmpegFrameGrabber, String path) {
+
+        Log.d(TAG, "printInfo: start >>>>>>  " + path);
+
+        Log.d(TAG, "printInfo: getFormat >>> " + fFmpegFrameGrabber.getFormat());
+        Log.d(TAG, "printInfo: getAspectRatio >>> " + fFmpegFrameGrabber.getAspectRatio());
+
+        Log.d(TAG, "printInfo: getImageWidth >>> " + fFmpegFrameGrabber.getImageWidth());
+        Log.d(TAG, "printInfo: getImageHeight >>> " + fFmpegFrameGrabber.getImageHeight());
+
+        Log.d(TAG, "printInfo: getVideoCodec >>> " + fFmpegFrameGrabber.getVideoCodec());
+        Log.d(TAG, "printInfo: getVideoBitrate >>> " + fFmpegFrameGrabber.getVideoBitrate());
+        Log.d(TAG, "printInfo: getFrameRate >>> " + fFmpegFrameGrabber.getFrameRate());
+        Log.d(TAG, "printInfo: getFrameNumber >>> " + fFmpegFrameGrabber.getFrameNumber());
+
+        Log.d(TAG, "printInfo: getAudioCodec >>> " + fFmpegFrameGrabber.getAudioCodec());
+        Log.d(TAG, "printInfo: getAudioBitrate >>> " + fFmpegFrameGrabber.getAudioBitrate());
+        Log.d(TAG, "printInfo: getAudioChannels >>> " + fFmpegFrameGrabber.getAudioChannels());
+        Log.d(TAG, "printInfo: getSampleRate >>> " + fFmpegFrameGrabber.getSampleRate());
+
+        Log.d(TAG, "printInfo: end >>>>>> " + path);
+
+    }
+
+    private boolean mergeVideos() {
+
+        final String path1 = "/storage/emulated/0/Movies/1.mp4";
+        final String path2 = "/storage/emulated/0/Movies/2.mp4";
+
+        final String outputPath = "/storage/emulated/0/Movies/output_javacv.mp4";
+
+
+        List<FFmpegFrameGrabberWrapper> fgs = new ArrayList<>();
+
+        try {
+            //第一段
+
+            FFmpegFrameGrabber videoGrabber1 = new FFmpegFrameGrabber(path1);
+            FFmpegFrameGrabber audioGrabber1 = new FFmpegFrameGrabber(path1);
+
+            FFmpegFrameGrabberWrapper fFmpegFrameGrabberWrapper1 = new FFmpegFrameGrabberWrapper(videoGrabber1, audioGrabber1);
+
+            fgs.add(fFmpegFrameGrabberWrapper1);
+
+            videoGrabber1.start();
+            audioGrabber1.start();
+
+            //第二段
+            FFmpegFrameGrabber videoGrabber2 = new FFmpegFrameGrabber(path2);
+            FFmpegFrameGrabber audioGrabber2 = new FFmpegFrameGrabber(path2);
+
+            FFmpegFrameGrabberWrapper fFmpegFrameGrabberWrapper2 = new FFmpegFrameGrabberWrapper(videoGrabber2, audioGrabber2);
+
+            fgs.add(fFmpegFrameGrabberWrapper2);
+            videoGrabber2.start();
+            audioGrabber2.start();
+
+
+            FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(
+                    outputPath,
+                    fgs.get(0).videoGrabber.getImageWidth(),
+                    fgs.get(0).videoGrabber.getImageHeight());
+
+            recorder.setFormat("mp4");
+
+            recorder.setVideoCodec(avcodec.AV_CODEC_ID_H264);
+
+            //recorder.setFrameRate(Math.min(grabber1.getFrameRate(), grabber2.getFrameRate()));
+
+            recorder.setVideoBitrate(fgs.get(0).videoGrabber.getVideoBitrate());
+
+            recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
+            recorder.setSampleRate(fgs.get(0).audioGrabber.getSampleRate());
+            recorder.setAudioBitrate(fgs.get(0).audioGrabber.getAudioBitrate());
+            recorder.setAudioChannels(fgs.get(0).audioGrabber.getAudioChannels());
+
+            recorder.start();
+
+            Frame frame;
+
+//            for (FFmpegFrameGrabber fg : fgs) {
+//
+//                recorder.setFrameRate(fg.getFrameRate());
+//
+//                while ((frame = fg.grabFrame(true, true, true, false)) != null) {
+//
+//                    recorder.record(frame);
+//                }
+//                fg.stop();
+//            }
+
+
+            double videoWriteTimeStamp = 0;
+            Frame videoLastFrame = null;
+            long videoLastFrameReadTimeStamp = 0;
+
+
+            double audioWriteTimeStamp = 0;
+            Frame audioLastFrame = null;
+            long audioLastFrameReadTimeStamp = 0;
+
+            for (int index = 0; index < fgs.size(); index++) {
+
+                FFmpegFrameGrabberWrapper fFmpegFrameGrabberWrapper = fgs.get(index);
+
+                long videoFrameCount = 1;
+                long audioFrameCount = 1;
+                videoLastFrameReadTimeStamp = 0;
+                videoLastFrame = null;
+
+                //单独处理每段视频的  音轨 和 视轨
+
+
+                //处理视轨
+                while ((frame = fFmpegFrameGrabberWrapper.videoGrabber.grabFrame(false, true, true, false)) != null) {
+
+
+                    //Log.d(TAG, "第 " + (index+1) + " 段视频 视轨 " + "第 " + videoFrameCount + " 帧 " + "readTimeStamp >>> " + fFmpegFrameGrabberWrapper.videoGrabber.getTimestamp());
+
+                    if (videoLastFrame == null) {
+                        //没有前一帧 说明是第一帧
+                        //videoWriteTimeStamp = 0;
+
+                    } else {
+
+                        videoWriteTimeStamp = videoWriteTimeStamp + (fFmpegFrameGrabberWrapper.videoGrabber.getTimestamp() - videoLastFrameReadTimeStamp);
+
+                    }
+
+
+                    Log.d(TAG, "第 " + (index+1) + " 段视频 视轨 " + "第 " + videoFrameCount + " 帧 " + "PTS >>>  " + videoWriteTimeStamp);
+                    Log.d(TAG, "第 " + (index+1) + " 段视频 视轨 " + "第 " + videoFrameCount + " 帧 " + "DTS >>>  " + recorder.getTimestamp());
+
+
+                    if ((long) videoWriteTimeStamp >= recorder.getTimestamp()) {
+
+                        recorder.setTimestamp((long) videoWriteTimeStamp);
+
+                    }
+
+                    recorder.record(frame);
+
+                    videoFrameCount += 1;
+                    videoLastFrame = frame;
+                    videoLastFrameReadTimeStamp = fFmpegFrameGrabberWrapper.videoGrabber.getTimestamp();
+
+
+                }
+
+                //处理音轨
+
+                while ((frame = fFmpegFrameGrabberWrapper.audioGrabber.grabFrame(true, false, true, false)) != null) {
+
+
+                    //Log.d(TAG, "第 " + (index+1) + " 段视频 音轨 " + "第 " + audioFrameCount + " 帧 " + "readTimeStamp >>> " + fFmpegFrameGrabberWrapper.audioGrabber.getTimestamp());
+
+                    if (audioLastFrame == null) {
+                        //没有前一帧 说明是第一帧
+                        //audioWriteTimeStamp = 0;
+
+                    } else {
+
+                        audioWriteTimeStamp = audioWriteTimeStamp + (fFmpegFrameGrabberWrapper.audioGrabber.getTimestamp() - audioLastFrameReadTimeStamp);
+
+                    }
+
+
+                    //Log.d(TAG, "第 " + (index+1) + " 段视频 音轨 " + "第 " + audioFrameCount + " 帧 " + "writeTimeStamp >>>  " + audioWriteTimeStamp);
+
+                    //recorder.setTimestamp((long)audioWriteTimeStamp);
+                    //frame.timestamp = 0;
+
+                    //frame.timestamp = (long) audioWriteTimeStamp;
+                    //recorder.setTimestamp(audioFrameCount);
+
+                    recorder.record(frame);
+
+
+                    audioFrameCount += 1;
+                    audioLastFrame = frame;
+                    audioLastFrameReadTimeStamp = fFmpegFrameGrabberWrapper.audioGrabber.getTimestamp();
+
+
+                }
+
+                fFmpegFrameGrabberWrapper.videoGrabber.stop();
+                fFmpegFrameGrabberWrapper.audioGrabber.stop();
+
+
+            }
+
+            recorder.stop();
+
+        } catch (FrameGrabber.Exception e) {
+
+            e.printStackTrace();
+            return false;
+        } catch (FrameRecorder.Exception e) {
+
+            e.printStackTrace();
+
+            return false;
+
+        } catch (Exception e){
+
+            e.printStackTrace();
+
+            return false;
+
+        }
+
+        return true;
+
+    }
+
+
+
+}
