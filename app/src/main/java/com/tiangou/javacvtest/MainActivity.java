@@ -1,7 +1,6 @@
 package com.tiangou.javacvtest;
 
 import android.Manifest;
-import android.app.AlarmManager;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
@@ -11,7 +10,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.bytedeco.javacpp.avcodec;
 import org.bytedeco.javacpp.avutil;
@@ -62,6 +60,13 @@ public class MainActivity extends AppCompatActivity {
     });
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        PermissionUtil.checkAndRequestPermission(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE}, true, PermissionUtil.CHECK_STORAGE_PERMISSION);
+
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -70,8 +75,6 @@ public class MainActivity extends AppCompatActivity {
         textView = findViewById(R.id.text1);
 
         avutil.av_log_set_level(avutil.AV_LOG_ERROR);//  AV_LOG_ERROR
-
-        PermissionUtil.checkAndRequestPermission(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, true, PermissionUtil.CHECK_STORAGE_PERMISSION);
 
 
         button.setOnClickListener(new View.OnClickListener() {
@@ -122,6 +125,10 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "printInfo: getVideoBitrate >>> " + fFmpegFrameGrabber.getVideoBitrate());
         Log.d(TAG, "printInfo: getFrameRate >>> " + fFmpegFrameGrabber.getFrameRate());
         Log.d(TAG, "printInfo: getFrameNumber >>> " + fFmpegFrameGrabber.getFrameNumber());
+        Log.d(TAG, "printInfo: getLengthInVideoFrames >>> " + fFmpegFrameGrabber.getLengthInVideoFrames());
+        Log.d(TAG, "printInfo: getLengthInAudioFrames >>> " + fFmpegFrameGrabber.getLengthInAudioFrames());
+        Log.d(TAG, "printInfo: getLengthInTime >>> " + fFmpegFrameGrabber.getLengthInTime());
+        Log.d(TAG, "printInfo: getLengthInFrames >>> " + fFmpegFrameGrabber.getLengthInFrames());
 
         Log.d(TAG, "printInfo: getAudioCodec >>> " + fFmpegFrameGrabber.getAudioCodec());
         Log.d(TAG, "printInfo: getAudioBitrate >>> " + fFmpegFrameGrabber.getAudioBitrate());
@@ -136,8 +143,9 @@ public class MainActivity extends AppCompatActivity {
 
         final String path1 = "/storage/emulated/0/Movies/1.mp4";
         final String path2 = "/storage/emulated/0/Movies/2.mp4";
+        final String path3 = "/storage/emulated/0/Movies/3.mp4";
 
-        final String outputPath = "/storage/emulated/0/Movies/output_javacv.mp4";
+        final String outputPath = "/storage/emulated/0/Movies/output_" + System.currentTimeMillis() + ".mp4";
 
 
         List<FFmpegFrameGrabberWrapper> fgs = new ArrayList<>();
@@ -153,6 +161,9 @@ public class MainActivity extends AppCompatActivity {
             videoGrabber1.start();
             audioGrabber1.start();
 
+            //printInfo(videoGrabber1, path1);
+
+
             //第二段
             FFmpegFrameGrabber videoGrabber2 = new FFmpegFrameGrabber(path2);
             FFmpegFrameGrabber audioGrabber2 = new FFmpegFrameGrabber(path2);
@@ -163,15 +174,17 @@ public class MainActivity extends AppCompatActivity {
             videoGrabber2.start();
             audioGrabber2.start();
 
-            //第三段
-            //FFmpegFrameGrabber videoGrabber3 = new FFmpegFrameGrabber(path1);
-            //FFmpegFrameGrabber audioGrabber3 = new FFmpegFrameGrabber(path1);
+            //printInfo(videoGrabber2, path2);
 
-            //FFmpegFrameGrabberWrapper fFmpegFrameGrabberWrapper3 = new FFmpegFrameGrabberWrapper(videoGrabber3, audioGrabber3);
-
-
-            //videoGrabber3.start();
-            //audioGrabber3.start();
+//            //第三段
+//            FFmpegFrameGrabber videoGrabber3 = new FFmpegFrameGrabber(path3);
+//            FFmpegFrameGrabber audioGrabber3 = new FFmpegFrameGrabber(path3);
+//
+//            FFmpegFrameGrabberWrapper fFmpegFrameGrabberWrapper3 = new FFmpegFrameGrabberWrapper(videoGrabber3, audioGrabber3);
+//
+//
+//            videoGrabber3.start();
+//            audioGrabber3.start();
 
 
 
@@ -193,27 +206,19 @@ public class MainActivity extends AppCompatActivity {
 
             //recorder.setFrameRate(Math.min(grabber1.getFrameRate(), grabber2.getFrameRate()));
 
-            recorder.setVideoBitrate(fgs.get(0).videoGrabber.getVideoBitrate());
+            recorder.setVideoBitrate(fgs.get(1).videoGrabber.getVideoBitrate());
 
             recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
+
             recorder.setSampleRate(fgs.get(0).audioGrabber.getSampleRate());
+
             recorder.setAudioBitrate(fgs.get(0).audioGrabber.getAudioBitrate());
+
             recorder.setAudioChannels(fgs.get(0).audioGrabber.getAudioChannels());
 
             recorder.start();
 
             Frame frame;
-
-//            for (FFmpegFrameGrabber fg : fgs) {
-//
-//                recorder.setFrameRate(fg.getFrameRate());
-//
-//                while ((frame = fg.grabFrame(true, true, true, false)) != null) {
-//
-//                    recorder.record(frame);
-//                }
-//                fg.stop();
-//            }
 
 
             double videoWriteTimeStamp = 0;
@@ -254,8 +259,8 @@ public class MainActivity extends AppCompatActivity {
                     }
 
 
-                    Log.d(TAG, "第 " + (index+1) + " 段视频 视轨 " + "第 " + videoFrameCount + " 帧 " + "PTS >>>  " + videoWriteTimeStamp);
-                    Log.d(TAG, "第 " + (index+1) + " 段视频 视轨 " + "第 " + videoFrameCount + " 帧 " + "DTS >>>  " + recorder.getTimestamp());
+                    Log.d(TAG, "第 " + (index+1) + " 段视频 视轨 " + "第 " + videoFrameCount + " 帧 " + "PTS >>>  " + videoWriteTimeStamp +  " DTS >>>  " + recorder.getTimestamp());
+                    //Log.d(TAG, "第 " + (index+1) + " 段视频 视轨 " + "第 " + videoFrameCount + " 帧 " + "DTS >>>  " + recorder.getTimestamp());
 
 
                     if ((long) videoWriteTimeStamp >= recorder.getTimestamp()) {
