@@ -163,9 +163,22 @@ public class MainActivity extends AppCompatActivity {
             videoGrabber2.start();
             audioGrabber2.start();
 
+            //第三段
+            FFmpegFrameGrabber videoGrabber3 = new FFmpegFrameGrabber(path1);
+            FFmpegFrameGrabber audioGrabber3 = new FFmpegFrameGrabber(path1);
 
-            fgs.add(fFmpegFrameGrabberWrapper2);
+            FFmpegFrameGrabberWrapper fFmpegFrameGrabberWrapper3 = new FFmpegFrameGrabberWrapper(videoGrabber3, audioGrabber3);
+
+
+            videoGrabber3.start();
+            audioGrabber3.start();
+
+
+
+            //添加处理段落到集合中
             fgs.add(fFmpegFrameGrabberWrapper1);
+            fgs.add(fFmpegFrameGrabberWrapper2);
+            //fgs.add(fFmpegFrameGrabberWrapper3);
 
 
             FFmpegFrameRecorder recorder = new FFmpegFrameRecorder(
